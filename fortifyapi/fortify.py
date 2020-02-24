@@ -88,6 +88,7 @@ class FortifyApi(object):
         ])
         return json.dumps(json_application_version)
 
+    #TODO: Add param to take a list of guid_values for the attribute_definition
     def _bulk_create_attributes(self, version_id, development_phase, development_strategy,
                                 accessibility, business_risk_ranking, custom_attributes):
         if business_risk_ranking is None:
