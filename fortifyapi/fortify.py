@@ -327,6 +327,21 @@ class FortifyApi(object):
 
         return response, file_name
 
+    #TODO: finish this up
+    def download_fpr(self, version_id):
+        file_token = self.get_file_token('DOWNLOAD').data['data']['token']
+        url = "/download/currentStateFprDownload.html?mat=" + file_token + "&includeSource=true&id=" + str(version_id)
+
+        headers = {
+            'Accept': 'Accept:application/xml, text/xml, */*; q=0.01',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+
+        params = {
+            'clientVersion': self.client_version
+        }
+
     def get_artifact_scans(self, parent_id):
         """
         :param parent_id: parent resource identifier
