@@ -14,6 +14,93 @@ import requests.auth
 import requests.exceptions
 import requests.packages.urllib3
 from . import __version__ as version
+from enum import Enum
+
+
+class FieldsProjectVersionIssues(Enum):
+    analyzer = "analyzer"
+    audited = "audited"
+    bug_url = "bugURL"
+    confidence = "confidence"
+    display_engine_type = "displayEngineType"
+    engine_category = "engineCategory"
+    engine_type = "engineType"
+    external_bug_id = "externalBugId"
+    folder_guid = "folderGuid"
+    folder_id = "folderId"
+    found_date = "foundDate"
+    friority = "friority"
+    full_file_name = "fullFileName"
+    has_attachments = "hasAttachments"
+    has_comments = "hasComments"
+    has_correlated_issues = "hasCorrelatedIssues"
+    hidden = "hidden"
+    id = "id"
+    impact = "impact"
+    issue_instance_id = "issueInstanceId"
+    issue_name = "issueName"
+    issue_status = "issueStatus"
+    kingdom = "kingdom"
+    last_scan_id = "lastScanId"
+    likelihood = "likelihood"
+    line_number = "lineNumber"
+    primary_location = "primaryLocation"
+    primary_rule_guid = "primaryRuleGuid"
+    primary_tag = "primaryTag"
+    primary_tag_value_auto_applied = "primaryTagValueAutoApplied"
+    project_name = "projectName"
+    project_version_id = "projectVersionId"
+    project_version_name = "projectVersionName"
+    removed = "removed"
+    removed_date = "removedDate"
+    reviewed = "reviewed"
+    revision = "revision"
+    scan_status = "scanStatus"
+    severity = "severity"
+    suppressed = "suppressed"
+
+
+class QmParameter(Enum):
+    issues = "issues"
+
+
+class FolderDto(Enum):
+    color = "color"
+    guid = "guid"
+    id = "id"
+    name = "name"
+
+
+class FilterSet(Enum):
+    default_filter_set = "defaultFilterSet"
+    description = "description"
+    folders = FolderDto
+    guid = "guid"
+    title = "title"
+
+
+class FortifyResponse(object):
+    """Container for all Fortify SSC API responses, even errors."""
+
+    def __init__(self, success, message='OK', response_code=-1, data=None, headers=None):
+        self.message = message
+        self.success = success
+        self.response_code = response_code
+        self.data = data
+        self.headers = headers
+
+    def __str__(self):
+        if self.data:
+            return str(self.data)
+        else:
+            return self.message
+
+    def data_json(self, pretty=False):
+        """Returns the data as a valid JSON string."""
+        if pretty:
+            return json.dumps(self.data, sort_keys=True, indent=4, separators=(',', ': '))
+        else:
+            return json.dumps(self.data)
 
 
 class FortifyApi(object):
@@ -45,7 +132,7 @@ class FortifyApi(object):
             self.auth_type = 'unauthenticated'
 
     def bulk_create_new_application_version_request(self, version_id, development_phase, development_strategy,
-                                                    accessibility, business_risk_ranking, custom_attributes=[]):
+                                                    accessibility, business_risk_ranking, custom_attributes=None):
         """
         Creates a new Application Version by using the Bulk Request API. 'create_new_project_version' must be used
         before calling this method.
@@ -54,10 +141,12 @@ class FortifyApi(object):
         :param development_strategy: Development Strategy GUID of Version
         :param accessibility: Accessibility GUID of Version
         :param business_risk_ranking: Business Risk Rank GUID of Version
-        :param custom_attributse: List of custom Attribute tuples that consist of attributeDefinitionId, values, & value. 
-                                  Default is a empty string tuple.
+        :param custom_attributes: List of custom Attribute tuples that consist of attributeDefinitionId, values,
+                                    & value. Default is a empty string tuple.
         :return: A response object containing the newly created project and project version
         """
+        if custom_attributes is None:
+            custom_attributes = []
         data = self._bulk_format_new_application_version_payload(version_id=version_id,
                                                                  development_phase=development_phase,
                                                                  development_strategy=development_strategy,
@@ -169,6 +258,17 @@ class FortifyApi(object):
                                         )
         return json_application_version
 
+    @staticmethod
+    def __clean_query(query):
+        """
+        :param query: string containing the query appended to a URL
+        :return: str: remove , and & from the end of queries
+        """
+        if query[-1:] == "," or query[-1:] == "&":  # check if end of URL contains a comma or ampersand
+            query = query[:-1]
+
+        return query
+
     def set_processing_rules(self, version_id):
         """
         :param version_id: SSC Project Version to modify
@@ -176,7 +276,7 @@ class FortifyApi(object):
         """
         data = [
             {"identifier": "com.fortify.manager.BLL.processingrules.ExternalListVersionProcessingRule",
-            "enabled": False},
+             "enabled": False},
             {"identifier": "com.fortify.manager.BLL.processingrules.FortifyAnnotationsProcessingRule",
              "enabled": False},
             {"identifier": "com.fortify.manager.BLL.processingrules.LOCCountProcessingRule",
@@ -200,17 +300,17 @@ class FortifyApi(object):
             {"identifier": "com.fortify.manager.BLL.processingrules.BuildProjectProcessingRule",
              "enabled": False},
             {"identifier": "com.fortify.manager.BLL.processingrules.VetoCascadingApprovalProcessingRule",
-              "enabled": False},
+             "enabled": False},
             {"identifier": "com.fortify.manager.BLL.processingrules.PendingApprovalChecker",
-              "enabled": False},
+             "enabled": False},
             {"identifier": "com.fortify.manager.BLL.processingrules.UnknownOrDisallowedAuditedAttrChecker",
-              "enabled": False},
-            { "identifier": "com.fortify.manager.BLL.processingrules.MigrationProcessingRule",
-              "enabled": False} 
+             "enabled": False},
+            {"identifier": "com.fortify.manager.BLL.processingrules.MigrationProcessingRule",
+             "enabled": False}
         ]
         url = '/api/v1/projectVersions/' + str(version_id) + '/resultProcessingRules'
         return self._request('PUT', url, json=data)
-    
+
     def get_processing_rules(self, version_id):
         """
         :param version_id: Project Version ID from SSC to query
@@ -251,16 +351,16 @@ class FortifyApi(object):
 
         url = '/api/v1/projectVersions'
         return self._request('POST', url, json=data)
-    
-    def delete_application_version(self, id):
+
+    def delete_application_version(self, version_id):
         """
         Delete a given application or project version from SSC
-        :param id: Project Version ID
+        :param version_id: Project Version ID
         :return:
         """
-        url = "/api/v1/projectVersions/" + str(id)
+        url = "/api/v1/projectVersions/" + str(version_id)
         return self._request('DELETE', url)
-    
+
     def download_artifact(self, artifact_id):
         """
         You might use this method like this, for example
@@ -425,19 +525,47 @@ class FortifyApi(object):
         url = "/api/v1/projectVersions/" + str(parent_id) + "/artifacts?start=-1&limit=-1"
         return self._request('GET', url)
 
-    def get_project_version_attributes(self, project_version_id):
+    def get_project_version_attributes(self, project_version_id, start=0, limit=-1):
         """
         :param project_version_id: Project version id
+        :param start:
+        :param limit:
         :return: A response object containing the project version attributes
         """
-        url = '/api/v1/projectVersions/' + str(project_version_id) + '/attributes/?start=-1&limit=-1'
+
+        query = "?"
+        query += "start={}&".format(start)
+        query += "limit={}&".format(limit)
+
+        query = self.__clean_query(query)
+
+        url = '/api/v1/projectVersions/' + str(project_version_id) + '/attributes/' + str(query)
         return self._request('GET', url)
 
-    def get_all_project_versions(self):
+    def get_project_version_attribute(self, project_version_id, attrib_id):
+        """
+
+        :param project_version_id: Project version id
+        :param attrib_id: Attribute ID
+        :return: A response object containing the details on the attribute
+        """
+
+        url = '/api/v1/projectVersions/' + str(project_version_id) + '/attributes/' + str(attrib_id)
+        return self._request('GET', url)
+
+    def get_all_project_versions(self, start=0, limit=-1):
         """
         :return: A response object with data containing project versions
         """
-        url = "/api/v1/projectVersions?start=-1&limit=-1"
+
+        query = "?"
+        query += "start={}&".format(start)
+        query += "limit={}&".format(limit)
+
+        query = self.__clean_query(query)
+
+        url = "/api/v1/projectVersions" + str(query)
+
         return self._request('GET', url)
 
     def get_project_version(self, version_id):
@@ -445,10 +573,14 @@ class FortifyApi(object):
         :version_id: Project Version ID
         :return: Details of a Project Version
         """
-        url = "/api/v1/projectVersions/" + version_id
+        url = "/api/v1/projectVersions/" + str(version_id)
         return self._request('GET', url)
-    
-    #TODO: deprecate
+
+    def get_project_versions_source_files(self, version_id):
+        url = "/api/v1/projectVersions/" + str(version_id) + "/sourceFiles"
+        return self._request('GET', url)
+
+    # TODO: deprecate
     def get_project_versions(self, project_name):
         """
         :return: A response object with data containing project versions
@@ -462,8 +594,8 @@ class FortifyApi(object):
         """
         url = "/api/v1/projectVersions?limit=0&q=name:\"" + version_name + "\""
         return self._request('GET', url)
-    
-    #TODO: deprecate
+
+    # TODO: deprecate
     def get_projects(self):
         """
         :return: A response object with data containing projects
@@ -472,14 +604,14 @@ class FortifyApi(object):
         url = "/api/v1/projects?start=-1&limit=-1"
         return self._request('GET', url)
 
-    def get_token(self, description, type='UnifiedLoginToken'):
+    def get_token(self, description, token_type='UnifiedLoginToken'):
         """
         Token types include UnifiedLoginToken, UploadFileTransferToken, DownloadFileTransferToken
         :return: A response object with data containing create date, terminal date, and the actual token
         """
         data = {
             "description": description,
-            "type": type
+            "type": token_type
         }
 
         url = '/api/v1/tokens'
@@ -522,7 +654,7 @@ class FortifyApi(object):
 
         return self._request('POST', url, params, files=files, stream=True, headers=headers)
 
-    #TODO change to '/api/v1/coreRulepacks/', "file=@rule.xml;type=text/xml, 'Content-Type': 'multipart/form-data',
+    # TODO change to '/api/v1/coreRulepacks/', "file=@rule.xml;type=text/xml, 'Content-Type': 'multipart/form-data',
     def upload_rulepack(self, file_path):
         """
         Upload rulepack to Fortify SSC
@@ -553,7 +685,7 @@ class FortifyApi(object):
     def delete_token(self, token_id):
         """
         Delete a token by ID from the auth-token-controller
-        :param id:
+        :param token_id:
         :return:
         """
         url = "/api/v1/tokens/" + str(token_id)
@@ -575,7 +707,7 @@ class FortifyApi(object):
         url = "/api/v1/tokens?start=0&limit=200"
         return self._request('GET', url)
 
-    #TODO: fix expire_date to one year out
+    # TODO: fix expire_date to one year out
     def set_token(self, description, token_type, expire_date="2021-12-29T22:40:11.000+0000"):
         """
         Create any type of SSC token required
@@ -627,16 +759,65 @@ class FortifyApi(object):
         url = "/api/v1/portlets/issueaging"
         return self._request('GET', url)
 
-    def get_project_version_issues(self, version_id, orderby='friority'):
+    def get_project_version_issues(self, version_id: int, start: int = 0, limit: int = -1, q: str = None,
+                                   fields: FieldsProjectVersionIssues = None,
+                                   order_by: FieldsProjectVersionIssues = FieldsProjectVersionIssues.friority.value,
+                                   filter_set: str = None,
+                                   show_hidden=False, show_removed=False, show_suppressed=False,
+                                   show_short_filenames=False, filter_string: str = None, group_id: str = None,
+                                   grouping_type: str = None) -> FortifyResponse:
         """
-        Issues per application/project version, with optional orderby query param
+        Issues per application/project version
         :param version_id:
-        :return: a List w/ no Project Version Name
+        :param start: A start offset in object listing
+        :param limit: A maximum number of returned objects in listing, if '-1’ or ‘0’ no limit is applied
+        :param q: An issue query expression
+        :param fields: a list of values from FieldsProjectVersionIssues when specified will only be returned by the API
+        :param order_by: FieldsProjectVersionIssues - Fields to order by (default friority)
+        :param filter_set: FilterSet - Filter set to use
+        :param show_hidden: boolean
+        :param show_removed: boolean
+        :param show_suppressed: boolean
+        :param show_short_filenames: boolean
+        :param filter_string: str
+        :param group_id: str
+        :param grouping_type: str
+        :return: FortifyResponse (HTTP response)
         """
-        url = '/api/v1/projectVersions/' + str(version_id) + '/issues?start=0&limit=-1&' + orderby + '&' \
-                                                             'showhidden=false&' \
-                                                             'showremoved=false&showsuppressed=false&' \
-                                                             'showshortfilenames=false'
+
+        query = "?"
+        query += "start={}&".format(start)
+        query += "limit={}&".format(limit)
+        if q:  # must be used together with the ‘qm’ parameter
+            query += "q={}&qm={}&".format(q, QmParameter.issues.value)
+        if fields:
+            query += "fields="
+            for field in fields:
+                query += "{},".format(field)
+            query = self.__clean_query(query)
+            query += "&"
+        if order_by:
+            query += "orderby={}&".format(order_by)
+        if filter_set:
+            query += "filterset={}&".format(filter_set)
+        if show_hidden:
+            query += "show_hidden={}&".format(show_hidden)
+        if show_removed:
+            query += "show_removed={}&".format(show_removed)
+        if show_suppressed:
+            query += "show_suppressed={}&".format(show_suppressed)
+        if show_short_filenames:
+            query += "show_short_filenames={}&".format(show_short_filenames)
+        if filter_string:
+            query += "filter_string={}&".format(filter_string)
+        if group_id:
+            query += "group_id={}&".format(group_id)
+        if grouping_type:
+            query += "grouping_type={}&".format(grouping_type)
+
+        query = self.__clean_query(query)
+
+        url = '/api/v1/projectVersions/' + str(version_id) + '/issues' + query
         return self._request('GET', url)
 
     def get_project_version_issue_details(self, issue_id):
@@ -687,7 +868,7 @@ class FortifyApi(object):
         :return:
         """
         data = {
-                "workerUuids": [str(worker_uuid)]
+            "workerUuids": [str(worker_uuid)]
         }
         url = '/cloudpools/' + pool_id + '/workers/action/assign'
         return self._request('POST', url, json=data)
@@ -705,11 +886,10 @@ class FortifyApi(object):
         Add LDAP user to Fortify SSC
         :return:
         """
-        data = { "distinguishedName": distinguished_name,
-                 "roles": [{
-                 "permissionIds": [ str(project_version_id)]
-                 }]
-               }
+        data = {"distinguishedName": distinguished_name,
+                "roles": [{
+                    "permissionIds": [str(project_version_id)]
+                }]}
         url = '/api/v1/ldapObjects'
         return self._request('POST', url, json=data)
 
@@ -786,7 +966,7 @@ class FortifyApi(object):
                                             auth=(self.username, self.password), stream=stream)
             elif self.auth_type == 'token':
                 response = requests.request(method=method, url=self.host + url, params=params, files=files,
-                                            headers=headers, json=json, data=data, timeout=self.timeout, 
+                                            headers=headers, json=json, data=data, timeout=self.timeout,
                                             verify=self.verify_ssl, auth=FortifyTokenAuth(self.token), stream=stream)
             else:
                 response = requests.request(method=method, url=self.host + url, params=params, files=files,
@@ -828,27 +1008,3 @@ class FortifyTokenAuth(requests.auth.AuthBase):
     def __call__(self, r):
         r.headers['Authorization'] = 'FortifyToken ' + self.token
         return r
-
-
-class FortifyResponse(object):
-    """Container for all Fortify SSC API responses, even errors."""
-
-    def __init__(self, success, message='OK', response_code=-1, data=None, headers=None):
-        self.message = message
-        self.success = success
-        self.response_code = response_code
-        self.data = data
-        self.headers = headers
-
-    def __str__(self):
-        if self.data:
-            return str(self.data)
-        else:
-            return self.message
-
-    def data_json(self, pretty=False):
-        """Returns the data as a valid JSON string."""
-        if pretty:
-            return json.dumps(self.data, sort_keys=True, indent=4, separators=(',', ': '))
-        else:
-            return json.dumps(self.data)
